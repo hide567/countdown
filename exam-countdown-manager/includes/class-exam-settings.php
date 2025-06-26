@@ -1,6 +1,530 @@
-<?php
 /**
- * 資格試験設定管理クラス（カラー設定対応版・完全版）
+     * カウントダウン設定ページ（日数強調機能追加版）
+     */
+    public function countdown_settings_page() {
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+        
+        // 設定保存処理
+        if (isset($_POST['submit'])) {
+            $this->save_countdown_settings();
+        }
+        
+        $options = get_option('ecm_countdown_display_options', array(
+            'show_in_header' => false,
+            'show_in_footer' => false,
+            'countdown_style' => 'default',
+            'show_detailed_time' => false,
+            'header_bg_color' => '#2c3e50',
+            'header_text_color' => '#ffffff',
+            'footer_bg_color' => '#34495e',
+            'footer_text_color' => '#ffffff',
+            'header_number_color' => '#f9ca24',
+            'header_number_size' => 'medium',
+            'footer_number_color' => '#f9ca24',
+            'footer_number_size' => 'medium'
+        ));
+        ?>
+        <div class="wrap">
+            <h1><?php _e('カウントダウン設定', 'exam-countdown-manager'); ?></h1>
+            
+            <form method="post" action="">
+                <?php wp_nonce_field('ecm_countdown_settings', 'ecm_countdown_nonce'); ?>
+                
+                <table class="form-table">
+                    <tr>
+                        <th scope="row"><?php _e('表示場所', 'exam-countdown-manager'); ?></th>
+                        <td>
+                            <table class="widefat">
+                                <tr>
+                                    <td style="width: 120px;"><label for="footer_bg_color"><?php _e('背景色:', 'exam-countdown-manager'); ?></label></td>
+                                    <td><input type="color" name="footer_bg_color" id="footer_bg_color" 
+                                               value="<?php echo esc_attr($options['footer_bg_color']); ?>" class="color-field"></td>
+                                </tr>
+                                <tr>
+                                    <td><label for="footer_text_color"><?php _e('文字色:', 'exam-countdown-manager'); ?></label></td>
+                                    <td><input type="color" name="footer_text_color" id="footer_text_color" 
+                                               value="<?php echo esc_attr($options['footer_text_color']); ?>" class="color-field"></td>
+                                </tr>
+                                <tr>
+                                    <td><label for="footer_number_color"><?php _e('日数の色:', 'exam-countdown-manager'); ?></label></td>
+                                    <td><input type="color" name="footer_number_color" id="footer_number_color" 
+                                               value="<?php echo esc_attr($options['footer_number_color']); ?>" class="color-field"></td>
+                                </tr>
+                                <tr>
+                                    <td><label for="footer_number_size"><?php _e('日数のサイズ:', 'exam-countdown-manager'); ?></label></td>
+                                    <td>
+                                        <select name="footer_number_size" id="footer_number_size">
+                                            <option value="small" <?php selected($options['footer_number_size'], 'small'); ?>><?php _e('小', 'exam-countdown-manager'); ?></option>
+                                            <option value="medium" <?php selected($options['footer_number_size'], 'medium'); ?>><?php _e('中', 'exam-countdown-manager'); ?></option>
+                                            <option value="large" <?php selected($options['footer_number_size'], 'large'); ?>><?php _e('大', 'exam-countdown-manager'); ?></option>
+                                            <option value="xlarge" <?php selected($options['footer_number_size'], 'xlarge'); ?>><?php _e('特大', 'exam-countdown-manager'); ?></option>
+                                        </select>
+                                    </td>
+                                </tr>
+                            </table>
+                            <p class="description">
+                                <?php _e('フッターに表示されるカウントダウンの色とサイズを設定できます。日数部分は他の文字とは別に強調表示されます。', 'exam-countdown-manager'); ?>
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+                
+                <!-- プレビュー表示（日数強調対応） -->
+                <div class="ecm-admin-section">
+                    <h3><?php _e('プレビュー', 'exam-countdown-manager'); ?></h3>
+                    <div class="ecm-preview-container">
+                        <div class="ecm-preview-content">
+                            <div id="header-preview" class="ecm-countdown ecm-countdown-header" style="margin-bottom: 10px;">
+                                <div class="ecm-exam-name"><?php _e('サンプル試験', 'exam-countdown-manager'); ?></div>
+                                <div class="ecm-countdown-default">
+                                    <?php _e('あと', 'exam-countdown-manager'); ?> <span class="ecm-days-number ecm-enhanced-number">50</span> <?php _e('日', 'exam-countdown-manager'); ?>
+                                </div>
+                            </div>
+                            <div id="footer-preview" class="ecm-countdown ecm-countdown-footer">
+                                <div class="ecm-exam-name"><?php _e('サンプル試験', 'exam-countdown-manager'); ?></div>
+                                <div class="ecm-countdown-default">
+                                    <?php _e('あと', 'exam-countdown-manager'); ?> <span class="ecm-days-number ecm-enhanced-number">50</span> <?php _e('日', 'exam-countdown-manager'); ?>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="ecm-preview-note">
+                            <p class="description">
+                                <?php _e('色とサイズ設定を変更すると、上記のプレビューに反映されます。日数部分（50）が強調表示されています。', 'exam-countdown-manager'); ?>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <p class="submit">
+                    <input type="submit" name="submit" class="button button-primary" 
+                           value="<?php _e('設定を保存', 'exam-countdown-manager'); ?>">
+                </p>
+            </form>
+        </div>
+        
+        <script>
+        jQuery(document).ready(function($) {
+            // カラーピッカーとサイズ設定の変更を監視してプレビューを更新
+            $('input[type="color"], select').on('change', function() {
+                updatePreview();
+            });
+            
+            function updatePreview() {
+                var headerBg = $('#header_bg_color').val();
+                var headerText = $('#header_text_color').val();
+                var headerNumber = $('#header_number_color').val();
+                var headerSize = $('#header_number_size').val();
+                
+                var footerBg = $('#footer_bg_color').val();
+                var footerText = $('#footer_text_color').val();
+                var footerNumber = $('#footer_number_color').val();
+                var footerSize = $('#footer_number_size').val();
+                
+                // フォントサイズマップ
+                var sizeMap = {
+                    'small': '1.2em',
+                    'medium': '1.4em',
+                    'large': '1.8em',
+                    'xlarge': '2.2em'
+                };
+                
+                $('#header-preview').css({
+                    'background-color': headerBg,
+                    'color': headerText
+                });
+                
+                $('#header-preview .ecm-enhanced-number').css({
+                    'color': headerNumber + ' !important',
+                    'font-size': sizeMap[headerSize] + ' !important'
+                });
+                
+                $('#footer-preview').css({
+                    'background-color': footerBg,
+                    'color': footerText
+                });
+                
+                $('#footer-preview .ecm-enhanced-number').css({
+                    'color': footerNumber + ' !important',
+                    'font-size': sizeMap[footerSize] + ' !important'
+                });
+            }
+            
+            // 初期プレビューを設定
+            updatePreview();
+        });
+        </script>
+        
+        <style>
+        .color-field {
+            width: 60px;
+            height: 30px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .ecm-preview-container {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .ecm-preview-content {
+            margin-bottom: 15px;
+        }
+        .ecm-preview-note {
+            border-top: 1px solid #ddd;
+            padding-top: 15px;
+        }
+        #header-preview, #footer-preview {
+            margin: 10px 0;
+            padding: 10px 15px;
+            border-radius: 0;
+            font-size: 14px;
+            text-align: center;
+        }
+        #header-preview .ecm-enhanced-number,
+        #footer-preview .ecm-enhanced-number {
+            font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+        }
+        </style>
+        <?php
+    }
+    
+    /**
+     * カウントダウン設定保存（日数強調設定追加版）
+     */
+    private function save_countdown_settings() {
+        if (!wp_verify_nonce($_POST['ecm_countdown_nonce'], 'ecm_countdown_settings')) {
+            wp_die(__('セキュリティチェックに失敗しました。', 'exam-countdown-manager'));
+        }
+        
+        // カラー値のバリデーション
+        $header_bg_color = sanitize_text_field($_POST['header_bg_color']);
+        $header_text_color = sanitize_text_field($_POST['header_text_color']);
+        $footer_bg_color = sanitize_text_field($_POST['footer_bg_color']);
+        $footer_text_color = sanitize_text_field($_POST['footer_text_color']);
+        $header_number_color = sanitize_text_field($_POST['header_number_color']);
+        $footer_number_color = sanitize_text_field($_POST['footer_number_color']);
+        
+        // 16進数カラーコードの検証
+        if (!preg_match('/^#[a-fA-F0-9]{6}$/', $header_bg_color)) {
+            $header_bg_color = '#2c3e50';
+        }
+        if (!preg_match('/^#[a-fA-F0-9]{6}$/', $header_text_color)) {
+            $header_text_color = '#ffffff';
+        }
+        if (!preg_match('/^#[a-fA-F0-9]{6}$/', $footer_bg_color)) {
+            $footer_bg_color = '#34495e';
+        }
+        if (!preg_match('/^#[a-fA-F0-9]{6}$/', $footer_text_color)) {
+            $footer_text_color = '#ffffff';
+        }
+        if (!preg_match('/^#[a-fA-F0-9]{6}$/', $header_number_color)) {
+            $header_number_color = '#f9ca24';
+        }
+        if (!preg_match('/^#[a-fA-F0-9]{6}$/', $footer_number_color)) {
+            $footer_number_color = '#f9ca24';
+        }
+        
+        // サイズ設定の検証
+        $valid_sizes = array('small', 'medium', 'large', 'xlarge');
+        $header_number_size = in_array($_POST['header_number_size'], $valid_sizes) ? $_POST['header_number_size'] : 'medium';
+        $footer_number_size = in_array($_POST['footer_number_size'], $valid_sizes) ? $_POST['footer_number_size'] : 'medium';
+        
+        $options = array(
+            'show_in_header' => isset($_POST['show_in_header']),
+            'show_in_footer' => isset($_POST['show_in_footer']),
+            'countdown_style' => sanitize_text_field($_POST['countdown_style']),
+            'show_detailed_time' => isset($_POST['show_detailed_time']),
+            'header_bg_color' => $header_bg_color,
+            'header_text_color' => $header_text_color,
+            'footer_bg_color' => $footer_bg_color,
+            'footer_text_color' => $footer_text_color,
+            'header_number_color' => $header_number_color,
+            'header_number_size' => $header_number_size,
+            'footer_number_color' => $footer_number_color,
+            'footer_number_size' => $footer_number_size
+        );
+        
+        update_option('ecm_countdown_display_options', $options);
+        
+        add_settings_error('ecm_messages', 'ecm_message', 
+            __('設定を保存しました。', 'exam-countdown-manager'), 'success');
+    }
+    
+    /**
+     * ヘルプページ（日数強調機能の説明追加）
+     */
+    public function help_page() {
+        ?>
+        <div class="wrap">
+            <h1><?php _e('使い方・ヘルプ', 'exam-countdown-manager'); ?></h1>
+            
+            <div class="ecm-help-content">
+                <div class="card">
+                    <h2><?php _e('ショートコード一覧', 'exam-countdown-manager'); ?></h2>
+                    <table class="widefat">
+                        <thead>
+                            <tr>
+                                <th><?php _e('ショートコード', 'exam-countdown-manager'); ?></th>
+                                <th><?php _e('説明', 'exam-countdown-manager'); ?></th>
+                                <th><?php _e('オプション', 'exam-countdown-manager'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>[exam_countdown]</code></td>
+                                <td><?php _e('プライマリ試験のカウントダウンを表示', 'exam-countdown-manager'); ?></td>
+                                <td>style, exam, color, background, number_color, number_size</td>
+                            </tr>
+                            <tr>
+                                <td><code>[exam_list]</code></td>
+                                <td><?php _e('資格試験の一覧を表示', 'exam-countdown-manager'); ?></td>
+                                <td>upcoming, category, columns</td>
+                            </tr>
+                            <tr>
+                                <td><code>[exam_info]</code></td>
+                                <td><?php _e('特定の試験の詳細情報を表示', 'exam-countdown-manager'); ?></td>
+                                <td>exam, format, show_countdown</td>
+                            </tr>
+                            <tr>
+                                <td><code>[exam_progress]</code></td>
+                                <td><?php _e('学習進捗を表示（将来実装予定）', 'exam-countdown-manager'); ?></td>
+                                <td>user_id, exam</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="card">
+                    <h2><?php _e('使用例', 'exam-countdown-manager'); ?></h2>
+                    <h3><?php _e('基本的な使い方', 'exam-countdown-manager'); ?></h3>
+                    <pre><code>[exam_countdown]</code></pre>
+                    <p><?php _e('プライマリに設定された資格試験のカウントダウンを表示します。', 'exam-countdown-manager'); ?></p>
+                    
+                    <h3><?php _e('特定の試験を指定', 'exam-countdown-manager'); ?></h3>
+                    <pre><code>[exam_countdown exam="gyouseishoshi"]</code></pre>
+                    <p><?php _e('行政書士試験のカウントダウンを表示します。', 'exam-countdown-manager'); ?></p>
+                    
+                    <h3><?php _e('スタイルを変更', 'exam-countdown-manager'); ?></h3>
+                    <pre><code>[exam_countdown style="simple"]</code></pre>
+                    <p><?php _e('シンプルなスタイルでカウントダウンを表示します。', 'exam-countdown-manager'); ?></p>
+                    
+                    <h3><?php _e('カスタムカラー', 'exam-countdown-manager'); ?></h3>
+                    <pre><code>[exam_countdown color="#ffffff" background="#e74c3c"]</code></pre>
+                    <p><?php _e('白文字・赤背景でカウントダウンを表示します。', 'exam-countdown-manager'); ?></p>
+                    
+                    <h3><?php _e('日数強調機能（NEW）', 'exam-countdown-manager'); ?></h3>
+                    <pre><code>[exam_countdown number_color="#ff0000" number_size="large"]</code></pre>
+                    <p><?php _e('日数部分を赤色・大きなサイズで強調表示します。他の文字色とは独立して設定できます。', 'exam-countdown-manager'); ?></p>
+                    
+                    <h3><?php _e('ヘッダー・フッター表示', 'exam-countdown-manager'); ?></h3>
+                    <p><?php _e('ヘッダーやフッターへの表示は、カウントダウン設定ページで設定できます。一列表示でコンパクトに表示され、カスタムカラーと日数強調の設定も可能です。', 'exam-countdown-manager'); ?></p>
+                </div>
+                
+                <div class="card">
+                    <h2><?php _e('日数強調機能について', 'exam-countdown-manager'); ?></h2>
+                    <p><?php _e('バージョン1.0.2で追加された新機能です。カウントダウンの日数部分のみを他の文字とは別の色・サイズで強調表示できます。', 'exam-countdown-manager'); ?></p>
+                    
+                    <h3><?php _e('設定方法', 'exam-countdown-manager'); ?></h3>
+                    <ul>
+                        <li><strong><?php _e('ショートコード:', 'exam-countdown-manager'); ?></strong> number_color="色" number_size="サイズ" を追加</li>
+                        <li><strong><?php _e('ウィジェット:', 'exam-countdown-manager'); ?></strong> 「日数の強調設定」セクションで設定</li>
+                        <li><strong><?php _e('ヘッダー・フッター:', 'exam-countdown-manager'); ?></strong> カウントダウン設定ページで設定</li>
+                    </ul>
+                    
+                    <h3><?php _e('利用可能なサイズ', 'exam-countdown-manager'); ?></h3>
+                    <ul>
+                        <li><code>small</code> - 小サイズ</li>
+                        <li><code>medium</code> - 中サイズ（デフォルト）</li>
+                        <li><code>large</code> - 大サイズ</li>
+                        <li><code>xlarge</code> - 特大サイズ</li>
+                    </ul>
+                    
+                    <h3><?php _e('使用例', 'exam-countdown-manager'); ?></h3>
+                    <pre><code>[exam_countdown number_color="#e74c3c" number_size="xlarge"]</code></pre>
+                    <p><?php _e('日数を赤色・特大サイズで表示。「あと」「日」などの文字は通常のスタイルを維持します。', 'exam-countdown-manager'); ?></p>
+                </div>
+                
+                <div class="card">
+                    <h2><?php _e('PHP関数', 'exam-countdown-manager'); ?></h2>
+                    <p><?php _e('テーマファイルで直接使用できる関数：', 'exam-countdown-manager'); ?></p>
+                    <pre><code>
+// プライマリ試験を取得
+$primary_exam = ecm_get_primary_exam();
+
+// 特定の試験を取得
+$exam = ecm_get_exam_by_key('gyouseishoshi');
+
+// 残り日数を計算
+$days_left = ecm_get_days_until_exam('2025-11-09');
+
+// すべての試験を取得
+$all_exams = ecm_get_all_exams();
+
+// 日数強調でカウントダウン表示
+echo do_shortcode('[exam_countdown style="header" number_color="#ff6b6b" number_size="large"]');
+</code></pre>
+                </div>
+                
+                <div class="card">
+                    <h2><?php _e('カラー設定について', 'exam-countdown-manager'); ?></h2>
+                    <p><?php _e('ヘッダーやフッターに表示するカウントダウンの色は、カウントダウン設定ページで変更できます。', 'exam-countdown-manager'); ?></p>
+                    <ul>
+                        <li><?php _e('背景色：カウントダウン全体の背景色', 'exam-countdown-manager'); ?></li>
+                        <li><?php _e('文字色：試験名や「あと」「日」などの文字色', 'exam-countdown-manager'); ?></li>
+                        <li><?php _e('日数の色：日数部分のみの専用色（強調表示）', 'exam-countdown-manager'); ?></li>
+                        <li><?php _e('日数のサイズ：日数部分のフォントサイズ', 'exam-countdown-manager'); ?></li>
+                        <li><?php _e('設定変更後は、プレビューで確認できます', 'exam-countdown-manager'); ?></li>
+                        <li><?php _e('ショートコードでも個別にカラー指定が可能です', 'exam-countdown-manager'); ?></li>
+                    </ul>
+                </div>
+                
+                <div class="card">
+                    <h2><?php _e('一列表示について', 'exam-countdown-manager'); ?></h2>
+                    <p><?php _e('ヘッダーやフッターでの表示は、画面幅を抑えるために一列表示に最適化されています：', 'exam-countdown-manager'); ?></p>
+                    <ul>
+                        <li><?php _e('試験名と日数が横並びで表示されます', 'exam-countdown-manager'); ?></li>
+                        <li><?php _e('詳細表示の場合も、日・時・分が横一列に配置されます', 'exam-countdown-manager'); ?></li>
+                        <li><?php _e('小さい画面では自動的にサイズ調整されます', 'exam-countdown-manager'); ?></li>
+                        <li><?php _e('通常のコンテンツ内では従来通りの表示が維持されます', 'exam-countdown-manager'); ?></li>
+                        <li><?php _e('日数強調機能も一列表示で使用できます', 'exam-countdown-manager'); ?></li>
+                    </ul>
+                </div>
+                
+                <div class="card">
+                    <h2><?php _e('トラブルシューティング', 'exam-countdown-manager'); ?></h2>
+                    <h3><?php _e('カウントダウンが表示されない', 'exam-countdown-manager'); ?></h3>
+                    <ul>
+                        <li><?php _e('試験が登録されているか確認してください', 'exam-countdown-manager'); ?></li>
+                        <li><?php _e('「カウントダウンを表示する」がチェックされているか確認してください', 'exam-countdown-manager'); ?></li>
+                        <li><?php _e('ヘッダー・フッター表示の場合は、設定ページで表示設定を確認してください', 'exam-countdown-manager'); ?></li>
+                    </ul>
+                    
+                    <h3><?php _e('色が反映されない', 'exam-countdown-manager'); ?></h3>
+                    <ul>
+                        <li><?php _e('ブラウザのキャッシュをクリアしてください', 'exam-countdown-manager'); ?></li>
+                        <li><?php _e('テーマのCSSが優先されている可能性があります', 'exam-countdown-manager'); ?></li>
+                        <li><?php _e('カラーコードが正しい形式（#000000）か確認してください', 'exam-countdown-manager'); ?></li>
+                    </ul>
+                    
+                    <h3><?php _e('日数強調が効かない', 'exam-countdown-manager'); ?></h3>
+                    <ul>
+                        <li><?php _e('number_color や number_size の設定が正しいか確認してください', 'exam-countdown-manager'); ?></li>
+                        <li><?php _e('緊急度による自動色変更が優先される場合があります', 'exam-countdown-manager'); ?></li>
+                        <li><?php _e('ウィジェットの場合は「日数の強調設定」を確認してください', 'exam-countdown-manager'); ?></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <?php
+    }
+    
+    /**
+     * 日付バリデーション
+     */
+    private function validate_date($date) {
+        $d = DateTime::createFromFormat('Y-m-d', $date);
+        return $d && $d->format('Y-m-d') === $date;
+    }
+}
+
+// 設定エラーメッセージの表示
+add_action('admin_notices', function() {
+    settings_errors('ecm_messages');
+});
+                            <fieldset>
+                                <label>
+                                    <input type="checkbox" name="show_in_header" 
+                                           <?php checked($options['show_in_header']); ?>>
+                                    <?php _e('ヘッダーに表示', 'exam-countdown-manager'); ?>
+                                </label>
+                                <br>
+                                <label>
+                                    <input type="checkbox" name="show_in_footer" 
+                                           <?php checked($options['show_in_footer']); ?>>
+                                    <?php _e('フッターに表示', 'exam-countdown-manager'); ?>
+                                </label>
+                            </fieldset>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            <label for="countdown_style"><?php _e('表示スタイル', 'exam-countdown-manager'); ?></label>
+                        </th>
+                        <td>
+                            <select name="countdown_style" id="countdown_style">
+                                <option value="default" <?php selected($options['countdown_style'], 'default'); ?>>
+                                    <?php _e('デフォルト', 'exam-countdown-manager'); ?>
+                                </option>
+                                <option value="simple" <?php selected($options['countdown_style'], 'simple'); ?>>
+                                    <?php _e('シンプル', 'exam-countdown-manager'); ?>
+                                </option>
+                                <option value="detailed" <?php selected($options['countdown_style'], 'detailed'); ?>>
+                                    <?php _e('詳細表示', 'exam-countdown-manager'); ?>
+                                </option>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php _e('詳細時間表示', 'exam-countdown-manager'); ?></th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="show_detailed_time" 
+                                       <?php checked($options['show_detailed_time']); ?>>
+                                <?php _e('日数だけでなく時間・分も表示する', 'exam-countdown-manager'); ?>
+                            </label>
+                        </td>
+                    </tr>
+                    
+                    <!-- ヘッダーカラー設定 -->
+                    <tr>
+                        <th scope="row"><?php _e('ヘッダー表示設定', 'exam-countdown-manager'); ?></th>
+                        <td>
+                            <table class="widefat">
+                                <tr>
+                                    <td style="width: 120px;"><label for="header_bg_color"><?php _e('背景色:', 'exam-countdown-manager'); ?></label></td>
+                                    <td><input type="color" name="header_bg_color" id="header_bg_color" 
+                                               value="<?php echo esc_attr($options['header_bg_color']); ?>" class="color-field"></td>
+                                </tr>
+                                <tr>
+                                    <td><label for="header_text_color"><?php _e('文字色:', 'exam-countdown-manager'); ?></label></td>
+                                    <td><input type="color" name="header_text_color" id="header_text_color" 
+                                               value="<?php echo esc_attr($options['header_text_color']); ?>" class="color-field"></td>
+                                </tr>
+                                <tr>
+                                    <td><label for="header_number_color"><?php _e('日数の色:', 'exam-countdown-manager'); ?></label></td>
+                                    <td><input type="color" name="header_number_color" id="header_number_color" 
+                                               value="<?php echo esc_attr($options['header_number_color']); ?>" class="color-field"></td>
+                                </tr>
+                                <tr>
+                                    <td><label for="header_number_size"><?php _e('日数のサイズ:', 'exam-countdown-manager'); ?></label></td>
+                                    <td>
+                                        <select name="header_number_size" id="header_number_size">
+                                            <option value="small" <?php selected($options['header_number_size'], 'small'); ?>><?php _e('小', 'exam-countdown-manager'); ?></option>
+                                            <option value="medium" <?php selected($options['header_number_size'], 'medium'); ?>><?php _e('中', 'exam-countdown-manager'); ?></option>
+                                            <option value="large" <?php selected($options['header_number_size'], 'large'); ?>><?php _e('大', 'exam-countdown-manager'); ?></option>
+                                            <option value="xlarge" <?php selected($options['header_number_size'], 'xlarge'); ?>><?php _e('特大', 'exam-countdown-manager'); ?></option>
+                                        </select>
+                                    </td>
+                                </tr>
+                            </table>
+                            <p class="description">
+                                <?php _e('ヘッダーに表示されるカウントダウンの色とサイズを設定できます。日数部分は他の文字とは別に強調表示されます。', 'exam-countdown-manager'); ?>
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- フッターカラー設定 -->
+                    <tr>
+                        <th scope="row"><?php _e('フッター表示設定', 'exam-countdown-manager'); ?></th>
+                        <td><?php
+/**
+ * 資格試験設定管理クラス（日数強調機能付き完全版）
  *
  * @package ExamCountdownManager
  */
@@ -97,7 +621,7 @@ class ECM_Exam_Settings {
     }
     
     /**
-     * カスタムカラーをCSSに出力
+     * カスタムカラーをCSSに出力（日数強調対応）
      */
     public function output_custom_colors() {
         $options = get_option('ecm_countdown_display_options', array());
@@ -106,7 +630,9 @@ class ECM_Exam_Settings {
         
         // カスタムCSS変数を定義
         if (!empty($options['header_bg_color']) || !empty($options['header_text_color']) || 
-            !empty($options['footer_bg_color']) || !empty($options['footer_text_color'])) {
+            !empty($options['footer_bg_color']) || !empty($options['footer_text_color']) ||
+            !empty($options['header_number_color']) || !empty($options['footer_number_color'])) {
+            
             $custom_css .= ':root {';
             
             if (!empty($options['header_bg_color'])) {
@@ -123,6 +649,15 @@ class ECM_Exam_Settings {
             
             if (!empty($options['footer_text_color'])) {
                 $custom_css .= '--ecm-custom-footer-text: ' . esc_attr($options['footer_text_color']) . ';';
+            }
+            
+            // 日数強調用カラー変数
+            if (!empty($options['header_number_color'])) {
+                $custom_css .= '--ecm-custom-header-number: ' . esc_attr($options['header_number_color']) . ';';
+            }
+            
+            if (!empty($options['footer_number_color'])) {
+                $custom_css .= '--ecm-custom-footer-number: ' . esc_attr($options['footer_number_color']) . ';';
             }
             
             $custom_css .= '}';
@@ -151,79 +686,21 @@ class ECM_Exam_Settings {
             $custom_css .= '}';
         }
         
+        // 日数強調カラーの適用
+        if (!empty($options['header_number_color'])) {
+            $custom_css .= '.ecm-countdown-header .ecm-enhanced-number, .ecm-countdown-header .ecm-days-number { ';
+            $custom_css .= 'color: var(--ecm-custom-header-number) !important; ';
+            $custom_css .= '}';
+        }
+        
+        if (!empty($options['footer_number_color'])) {
+            $custom_css .= '.ecm-countdown-footer .ecm-enhanced-number, .ecm-countdown-footer .ecm-days-number { ';
+            $custom_css .= 'color: var(--ecm-custom-footer-number) !important; ';
+            $custom_css .= '}';
+        }
+        
         if (!empty($custom_css)) {
             echo '<style type="text/css" id="ecm-custom-colors">' . $custom_css . '</style>';
-        }
-    }
-    
-    /**
-     * メイン設定ページ
-     */
-    public function settings_page() {
-        // 権限チェック
-        if (!current_user_can('manage_options')) {
-            return;
-        }
-        
-        // フォーム処理
-        $this->handle_form_submission();
-        
-        // 現在のタブを取得
-        $active_tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : 'list';
-        
-        // 資格試験データを取得
-        $exams = get_option('ecm_exam_settings_data', array());
-        ?>
-        <div class="wrap">
-            <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
-            
-            <!-- タブナビゲーション -->
-            <h2 class="nav-tab-wrapper">
-                <a href="?page=<?php echo esc_attr($this->page_slug); ?>&tab=list" 
-                   class="nav-tab <?php echo $active_tab == 'list' ? 'nav-tab-active' : ''; ?>">
-                    <?php _e('資格一覧', 'exam-countdown-manager'); ?>
-                </a>
-                <a href="?page=<?php echo esc_attr($this->page_slug); ?>&tab=add" 
-                   class="nav-tab <?php echo $active_tab == 'add' ? 'nav-tab-active' : ''; ?>">
-                    <?php _e('新規追加', 'exam-countdown-manager'); ?>
-                </a>
-                <?php if (isset($_GET['edit'])): ?>
-                <a href="?page=<?php echo esc_attr($this->page_slug); ?>&tab=edit&edit=<?php echo esc_attr($_GET['edit']); ?>" 
-                   class="nav-tab <?php echo $active_tab == 'edit' ? 'nav-tab-active' : ''; ?>">
-                    <?php _e('編集', 'exam-countdown-manager'); ?>
-                </a>
-                <?php endif; ?>
-            </h2>
-            
-            <?php $this->display_tab_content($active_tab, $exams); ?>
-        </div>
-        <?php
-    }
-    
-    /**
-     * タブコンテンツを表示
-     */
-    private function display_tab_content($active_tab, $exams) {
-        switch ($active_tab) {
-            case 'list':
-                $this->display_exam_list($exams);
-                break;
-            case 'add':
-                $this->display_add_form();
-                break;
-            case 'edit':
-                if (isset($_GET['edit']) && isset($exams[$_GET['edit']])) {
-                    $this->display_edit_form($_GET['edit'], $exams[$_GET['edit']]);
-                } else {
-                    $this->display_exam_list($exams);
-                }
-                break;
-            default:
-                $this->display_exam_list($exams);
-                break;
-        }
-    }
-    
     /**
      * 資格試験一覧を表示
      */
@@ -692,402 +1169,68 @@ class ECM_Exam_Settings {
     }
     
     /**
-     * カウントダウン設定ページ（カラー設定追加版）
+     * メイン設定ページ
      */
-    public function countdown_settings_page() {
+    public function settings_page() {
+        // 権限チェック
         if (!current_user_can('manage_options')) {
             return;
         }
         
-        // 設定保存処理
-        if (isset($_POST['submit'])) {
-            $this->save_countdown_settings();
-        }
+        // フォーム処理
+        $this->handle_form_submission();
         
-        $options = get_option('ecm_countdown_display_options', array(
-            'show_in_header' => false,
-            'show_in_footer' => false,
-            'countdown_style' => 'default',
-            'show_detailed_time' => false,
-            'header_bg_color' => '#2c3e50',
-            'header_text_color' => '#ffffff',
-            'footer_bg_color' => '#34495e',
-            'footer_text_color' => '#ffffff'
-        ));
+        // 現在のタブを取得
+        $active_tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : 'list';
+        
+        // 資格試験データを取得
+        $exams = get_option('ecm_exam_settings_data', array());
         ?>
         <div class="wrap">
-            <h1><?php _e('カウントダウン設定', 'exam-countdown-manager'); ?></h1>
+            <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
             
-            <form method="post" action="">
-                <?php wp_nonce_field('ecm_countdown_settings', 'ecm_countdown_nonce'); ?>
-                
-                <table class="form-table">
-                    <tr>
-                        <th scope="row"><?php _e('表示場所', 'exam-countdown-manager'); ?></th>
-                        <td>
-                            <fieldset>
-                                <label>
-                                    <input type="checkbox" name="show_in_header" 
-                                           <?php checked($options['show_in_header']); ?>>
-                                    <?php _e('ヘッダーに表示', 'exam-countdown-manager'); ?>
-                                </label>
-                                <br>
-                                <label>
-                                    <input type="checkbox" name="show_in_footer" 
-                                           <?php checked($options['show_in_footer']); ?>>
-                                    <?php _e('フッターに表示', 'exam-countdown-manager'); ?>
-                                </label>
-                            </fieldset>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row">
-                            <label for="countdown_style"><?php _e('表示スタイル', 'exam-countdown-manager'); ?></label>
-                        </th>
-                        <td>
-                            <select name="countdown_style" id="countdown_style">
-                                <option value="default" <?php selected($options['countdown_style'], 'default'); ?>>
-                                    <?php _e('デフォルト', 'exam-countdown-manager'); ?>
-                                </option>
-                                <option value="simple" <?php selected($options['countdown_style'], 'simple'); ?>>
-                                    <?php _e('シンプル', 'exam-countdown-manager'); ?>
-                                </option>
-                                <option value="detailed" <?php selected($options['countdown_style'], 'detailed'); ?>>
-                                    <?php _e('詳細表示', 'exam-countdown-manager'); ?>
-                                </option>
-                            </select>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><?php _e('詳細時間表示', 'exam-countdown-manager'); ?></th>
-                        <td>
-                            <label>
-                                <input type="checkbox" name="show_detailed_time" 
-                                       <?php checked($options['show_detailed_time']); ?>>
-                                <?php _e('日数だけでなく時間・分も表示する', 'exam-countdown-manager'); ?>
-                            </label>
-                        </td>
-                    </tr>
-                    
-                    <!-- ヘッダーカラー設定 -->
-                    <tr>
-                        <th scope="row"><?php _e('ヘッダー表示色設定', 'exam-countdown-manager'); ?></th>
-                        <td>
-                            <fieldset>
-                                <label for="header_bg_color"><?php _e('背景色:', 'exam-countdown-manager'); ?></label>
-                                <input type="color" name="header_bg_color" id="header_bg_color" 
-                                       value="<?php echo esc_attr($options['header_bg_color']); ?>" class="color-field">
-                                <br><br>
-                                <label for="header_text_color"><?php _e('文字色:', 'exam-countdown-manager'); ?></label>
-                                <input type="color" name="header_text_color" id="header_text_color" 
-                                       value="<?php echo esc_attr($options['header_text_color']); ?>" class="color-field">
-                                <p class="description">
-                                    <?php _e('ヘッダーに表示されるカウントダウンの色を設定できます', 'exam-countdown-manager'); ?>
-                                </p>
-                            </fieldset>
-                        </td>
-                    </tr>
-                    
-                    <!-- フッターカラー設定 -->
-                    <tr>
-                        <th scope="row"><?php _e('フッター表示色設定', 'exam-countdown-manager'); ?></th>
-                        <td>
-                            <fieldset>
-                                <label for="footer_bg_color"><?php _e('背景色:', 'exam-countdown-manager'); ?></label>
-                                <input type="color" name="footer_bg_color" id="footer_bg_color" 
-                                       value="<?php echo esc_attr($options['footer_bg_color']); ?>" class="color-field">
-                                <br><br>
-                                <label for="footer_text_color"><?php _e('文字色:', 'exam-countdown-manager'); ?></label>
-                                <input type="color" name="footer_text_color" id="footer_text_color" 
-                                       value="<?php echo esc_attr($options['footer_text_color']); ?>" class="color-field">
-                                <p class="description">
-                                    <?php _e('フッターに表示されるカウントダウンの色を設定できます', 'exam-countdown-manager'); ?>
-                                </p>
-                            </fieldset>
-                        </td>
-                    </tr>
-                </table>
-                
-                <!-- プレビュー表示 -->
-                <div class="ecm-admin-section">
-                    <h3><?php _e('プレビュー', 'exam-countdown-manager'); ?></h3>
-                    <div class="ecm-preview-container">
-                        <div class="ecm-preview-content">
-                            <div id="header-preview" class="ecm-countdown ecm-countdown-header" style="margin-bottom: 10px;">
-                                <div class="ecm-exam-name"><?php _e('サンプル試験', 'exam-countdown-manager'); ?></div>
-                                <div class="ecm-countdown-default">
-                                    <?php _e('あと', 'exam-countdown-manager'); ?> <span class="ecm-days-number">50</span> <?php _e('日', 'exam-countdown-manager'); ?>
-                                </div>
-                            </div>
-                            <div id="footer-preview" class="ecm-countdown ecm-countdown-footer">
-                                <div class="ecm-exam-name"><?php _e('サンプル試験', 'exam-countdown-manager'); ?></div>
-                                <div class="ecm-countdown-default">
-                                    <?php _e('あと', 'exam-countdown-manager'); ?> <span class="ecm-days-number">50</span> <?php _e('日', 'exam-countdown-manager'); ?>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="ecm-preview-note">
-                            <p class="description">
-                                <?php _e('色設定を変更すると、上記のプレビューに反映されます', 'exam-countdown-manager'); ?>
-                            </p>
-                        </div>
-                    </div>
-                </div>
-                
-                <p class="submit">
-                    <input type="submit" name="submit" class="button button-primary" 
-                           value="<?php _e('設定を保存', 'exam-countdown-manager'); ?>">
-                </p>
-            </form>
-        </div>
-        
-        <script>
-        jQuery(document).ready(function($) {
-            // カラーピッカーの変更を監視してプレビューを更新
-            $('input[type="color"]').on('change', function() {
-                updatePreview();
-            });
+            <!-- タブナビゲーション -->
+            <h2 class="nav-tab-wrapper">
+                <a href="?page=<?php echo esc_attr($this->page_slug); ?>&tab=list" 
+                   class="nav-tab <?php echo $active_tab == 'list' ? 'nav-tab-active' : ''; ?>">
+                    <?php _e('資格一覧', 'exam-countdown-manager'); ?>
+                </a>
+                <a href="?page=<?php echo esc_attr($this->page_slug); ?>&tab=add" 
+                   class="nav-tab <?php echo $active_tab == 'add' ? 'nav-tab-active' : ''; ?>">
+                    <?php _e('新規追加', 'exam-countdown-manager'); ?>
+                </a>
+                <?php if (isset($_GET['edit'])): ?>
+                <a href="?page=<?php echo esc_attr($this->page_slug); ?>&tab=edit&edit=<?php echo esc_attr($_GET['edit']); ?>" 
+                   class="nav-tab <?php echo $active_tab == 'edit' ? 'nav-tab-active' : ''; ?>">
+                    <?php _e('編集', 'exam-countdown-manager'); ?>
+                </a>
+                <?php endif; ?>
+            </h2>
             
-            function updatePreview() {
-                var headerBg = $('#header_bg_color').val();
-                var headerText = $('#header_text_color').val();
-                var footerBg = $('#footer_bg_color').val();
-                var footerText = $('#footer_text_color').val();
-                
-                $('#header-preview').css({
-                    'background-color': headerBg,
-                    'color': headerText
-                });
-                
-                $('#footer-preview').css({
-                    'background-color': footerBg,
-                    'color': footerText
-                });
-            }
-            
-            // 初期プレビューを設定
-            updatePreview();
-        });
-        </script>
-        
-        <style>
-        .color-field {
-            width: 60px;
-            height: 30px;
-            border: 1px solid #ddd;
-            border-radius: 3px;
-            cursor: pointer;
-        }
-        .ecm-preview-container {
-            background: #f9f9f9;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            padding: 20px;
-            margin: 20px 0;
-        }
-        .ecm-preview-content {
-            margin-bottom: 15px;
-        }
-        .ecm-preview-note {
-            border-top: 1px solid #ddd;
-            padding-top: 15px;
-        }
-        #header-preview, #footer-preview {
-            margin: 10px 0;
-            padding: 10px 15px;
-            border-radius: 0;
-            font-size: 14px;
-            text-align: center;
-        }
-        </style>
-        <?php
-    }
-    
-    /**
-     * カウントダウン設定保存（カラー設定追加版）
-     */
-    private function save_countdown_settings() {
-        if (!wp_verify_nonce($_POST['ecm_countdown_nonce'], 'ecm_countdown_settings')) {
-            wp_die(__('セキュリティチェックに失敗しました。', 'exam-countdown-manager'));
-        }
-        
-        // カラー値のバリデーション
-        $header_bg_color = sanitize_text_field($_POST['header_bg_color']);
-        $header_text_color = sanitize_text_field($_POST['header_text_color']);
-        $footer_bg_color = sanitize_text_field($_POST['footer_bg_color']);
-        $footer_text_color = sanitize_text_field($_POST['footer_text_color']);
-        
-        // 16進数カラーコードの検証
-        if (!preg_match('/^#[a-fA-F0-9]{6}$/', $header_bg_color)) {
-            $header_bg_color = '#2c3e50';
-        }
-        if (!preg_match('/^#[a-fA-F0-9]{6}$/', $header_text_color)) {
-            $header_text_color = '#ffffff';
-        }
-        if (!preg_match('/^#[a-fA-F0-9]{6}$/', $footer_bg_color)) {
-            $footer_bg_color = '#34495e';
-        }
-        if (!preg_match('/^#[a-fA-F0-9]{6}$/', $footer_text_color)) {
-            $footer_text_color = '#ffffff';
-        }
-        
-        $options = array(
-            'show_in_header' => isset($_POST['show_in_header']),
-            'show_in_footer' => isset($_POST['show_in_footer']),
-            'countdown_style' => sanitize_text_field($_POST['countdown_style']),
-            'show_detailed_time' => isset($_POST['show_detailed_time']),
-            'header_bg_color' => $header_bg_color,
-            'header_text_color' => $header_text_color,
-            'footer_bg_color' => $footer_bg_color,
-            'footer_text_color' => $footer_text_color
-        );
-        
-        update_option('ecm_countdown_display_options', $options);
-        
-        add_settings_error('ecm_messages', 'ecm_message', 
-            __('設定を保存しました。', 'exam-countdown-manager'), 'success');
-    }
-    
-    /**
-     * ヘルプページ
-     */
-    public function help_page() {
-        ?>
-        <div class="wrap">
-            <h1><?php _e('使い方・ヘルプ', 'exam-countdown-manager'); ?></h1>
-            
-            <div class="ecm-help-content">
-                <div class="card">
-                    <h2><?php _e('ショートコード一覧', 'exam-countdown-manager'); ?></h2>
-                    <table class="widefat">
-                        <thead>
-                            <tr>
-                                <th><?php _e('ショートコード', 'exam-countdown-manager'); ?></th>
-                                <th><?php _e('説明', 'exam-countdown-manager'); ?></th>
-                                <th><?php _e('オプション', 'exam-countdown-manager'); ?></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td><code>[exam_countdown]</code></td>
-                                <td><?php _e('プライマリ試験のカウントダウンを表示', 'exam-countdown-manager'); ?></td>
-                                <td>style, exam, color, background</td>
-                            </tr>
-                            <tr>
-                                <td><code>[exam_list]</code></td>
-                                <td><?php _e('資格試験の一覧を表示', 'exam-countdown-manager'); ?></td>
-                                <td>upcoming, category, columns</td>
-                            </tr>
-                            <tr>
-                                <td><code>[exam_info]</code></td>
-                                <td><?php _e('特定の試験の詳細情報を表示', 'exam-countdown-manager'); ?></td>
-                                <td>exam, format, show_countdown</td>
-                            </tr>
-                            <tr>
-                                <td><code>[exam_progress]</code></td>
-                                <td><?php _e('学習進捗を表示（将来実装予定）', 'exam-countdown-manager'); ?></td>
-                                <td>user_id, exam</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                
-                <div class="card">
-                    <h2><?php _e('使用例', 'exam-countdown-manager'); ?></h2>
-                    <h3><?php _e('基本的な使い方', 'exam-countdown-manager'); ?></h3>
-                    <pre><code>[exam_countdown]</code></pre>
-                    <p><?php _e('プライマリに設定された資格試験のカウントダウンを表示します。', 'exam-countdown-manager'); ?></p>
-                    
-                    <h3><?php _e('特定の試験を指定', 'exam-countdown-manager'); ?></h3>
-                    <pre><code>[exam_countdown exam="gyouseishoshi"]</code></pre>
-                    <p><?php _e('行政書士試験のカウントダウンを表示します。', 'exam-countdown-manager'); ?></p>
-                    
-                    <h3><?php _e('スタイルを変更', 'exam-countdown-manager'); ?></h3>
-                    <pre><code>[exam_countdown style="simple"]</code></pre>
-                    <p><?php _e('シンプルなスタイルでカウントダウンを表示します。', 'exam-countdown-manager'); ?></p>
-                    
-                    <h3><?php _e('カスタムカラー', 'exam-countdown-manager'); ?></h3>
-                    <pre><code>[exam_countdown color="#ffffff" background="#e74c3c"]</code></pre>
-                    <p><?php _e('白文字・赤背景でカウントダウンを表示します。', 'exam-countdown-manager'); ?></p>
-                    
-                    <h3><?php _e('ヘッダー・フッター表示', 'exam-countdown-manager'); ?></h3>
-                    <p><?php _e('ヘッダーやフッターへの表示は、カウントダウン設定ページで設定できます。一列表示でコンパクトに表示され、カスタムカラーの設定も可能です。', 'exam-countdown-manager'); ?></p>
-                </div>
-                
-                <div class="card">
-                    <h2><?php _e('PHP関数', 'exam-countdown-manager'); ?></h2>
-                    <p><?php _e('テーマファイルで直接使用できる関数：', 'exam-countdown-manager'); ?></p>
-                    <pre><code>
-// プライマリ試験を取得
-$primary_exam = ecm_get_primary_exam();
-
-// 特定の試験を取得
-$exam = ecm_get_exam_by_key('gyouseishoshi');
-
-// 残り日数を計算
-$days_left = ecm_get_days_until_exam('2025-11-09');
-
-// すべての試験を取得
-$all_exams = ecm_get_all_exams();
-
-// カスタムカラーでカウントダウン表示
-echo do_shortcode('[exam_countdown style="header" color="#ffffff" background="#2c3e50"]');
-</code></pre>
-                </div>
-                
-                <div class="card">
-                    <h2><?php _e('カラー設定について', 'exam-countdown-manager'); ?></h2>
-                    <p><?php _e('ヘッダーやフッターに表示するカウントダウンの色は、カウントダウン設定ページで変更できます。', 'exam-countdown-manager'); ?></p>
-                    <ul>
-                        <li><?php _e('背景色：カウントダウン全体の背景色', 'exam-countdown-manager'); ?></li>
-                        <li><?php _e('文字色：試験名や日数の文字色', 'exam-countdown-manager'); ?></li>
-                        <li><?php _e('設定変更後は、プレビューで確認できます', 'exam-countdown-manager'); ?></li>
-                        <li><?php _e('ショートコードでも個別にカラー指定が可能です', 'exam-countdown-manager'); ?></li>
-                    </ul>
-                </div>
-                
-                <div class="card">
-                    <h2><?php _e('一列表示について', 'exam-countdown-manager'); ?></h2>
-                    <p><?php _e('ヘッダーやフッターでの表示は、画面幅を抑えるために一列表示に最適化されています：', 'exam-countdown-manager'); ?></p>
-                    <ul>
-                        <li><?php _e('試験名と日数が横並びで表示されます', 'exam-countdown-manager'); ?></li>
-                        <li><?php _e('詳細表示の場合も、日・時・分が横一列に配置されます', 'exam-countdown-manager'); ?></li>
-                        <li><?php _e('小さい画面では自動的にサイズ調整されます', 'exam-countdown-manager'); ?></li>
-                        <li><?php _e('通常のコンテンツ内では従来通りの表示が維持されます', 'exam-countdown-manager'); ?></li>
-                    </ul>
-                </div>
-                
-                <div class="card">
-                    <h2><?php _e('トラブルシューティング', 'exam-countdown-manager'); ?></h2>
-                    <h3><?php _e('カウントダウンが表示されない', 'exam-countdown-manager'); ?></h3>
-                    <ul>
-                        <li><?php _e('試験が登録されているか確認してください', 'exam-countdown-manager'); ?></li>
-                        <li><?php _e('「カウントダウンを表示する」がチェックされているか確認してください', 'exam-countdown-manager'); ?></li>
-                        <li><?php _e('ヘッダー・フッター表示の場合は、設定ページで表示設定を確認してください', 'exam-countdown-manager'); ?></li>
-                    </ul>
-                    
-                    <h3><?php _e('色が反映されない', 'exam-countdown-manager'); ?></h3>
-                    <ul>
-                        <li><?php _e('ブラウザのキャッシュをクリアしてください', 'exam-countdown-manager'); ?></li>
-                        <li><?php _e('テーマのCSSが優先されている可能性があります', 'exam-countdown-manager'); ?></li>
-                        <li><?php _e('カラーコードが正しい形式（#000000）か確認してください', 'exam-countdown-manager'); ?></li>
-                    </ul>
-                </div>
-            </div>
+            <?php $this->display_tab_content($active_tab, $exams); ?>
         </div>
         <?php
     }
     
     /**
-     * 日付バリデーション
+     * タブコンテンツを表示
      */
-    private function validate_date($date) {
-        $d = DateTime::createFromFormat('Y-m-d', $date);
-        return $d && $d->format('Y-m-d') === $date;
-    }
-}
-
-// 設定エラーメッセージの表示
-add_action('admin_notices', function() {
-    settings_errors('ecm_messages');
-});
+    private function display_tab_content($active_tab, $exams) {
+        switch ($active_tab) {
+            case 'list':
+                $this->display_exam_list($exams);
+                break;
+            case 'add':
+                $this->display_add_form();
+                break;
+            case 'edit':
+                if (isset($_GET['edit']) && isset($exams[$_GET['edit']])) {
+                    $this->display_edit_form($_GET['edit'], $exams[$_GET['edit']]);
+                } else {
+                    $this->display_exam_list($exams);
+                }
+                break;
+            default:
+                $this->display_exam_list($exams);
+                break;
+        }
