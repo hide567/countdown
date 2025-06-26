@@ -1,5 +1,5 @@
 /**
- * 資格試験カウントダウンマネージャー - フロントエンドスタイル（一列表示完全対応版）
+ * 資格試験カウントダウンマネージャー - フロントエンドスタイル（日数強調機能完全対応版）
  *
  * @package ExamCountdownManager
  */
@@ -20,6 +20,10 @@
     --ecm-header-text: #ffffff;
     --ecm-footer-bg: #34495e;
     --ecm-footer-text: #ffffff;
+    
+    /* 日数強調用のデフォルト設定 */
+    --ecm-number-color: var(--ecm-accent-color);
+    --ecm-number-size: 2em;
 }
 
 /* ==========================================================================
@@ -69,6 +73,73 @@
 
 .no-css-custom-properties .ecm-exam-name {
     color: #ffffff;
+}
+
+/* ==========================================================================
+   日数強調機能
+   ========================================================================== */
+
+/* 日数強調のベーススタイル */
+.ecm-enhanced-number,
+.ecm-days-number {
+    font-size: var(--ecm-number-size, 2em);
+    color: var(--ecm-number-color, #f9ca24);
+    font-weight: bold;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+    display: inline-block;
+    transition: var(--ecm-transition);
+    line-height: 1;
+}
+
+/* IE11フォールバック */
+.no-css-custom-properties .ecm-enhanced-number,
+.no-css-custom-properties .ecm-days-number {
+    font-size: 2em;
+    color: #f9ca24;
+    transition: all 0.3s ease;
+}
+
+/* 日数強調が有効な場合の特別スタイル */
+.ecm-number-enhanced .ecm-enhanced-number,
+.ecm-number-enhanced .ecm-days-number {
+    position: relative;
+    z-index: 2;
+}
+
+/* 日数変更アニメーション */
+.ecm-enhanced-number.ecm-number-changing,
+.ecm-days-number.ecm-number-changing {
+    transform: scale(1.1);
+    animation: numberPulse 0.6s ease-in-out;
+}
+
+@keyframes numberPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+}
+
+/* 緊急度による自動色変更（カスタム色がない場合のみ） */
+.ecm-countdown.ecm-urgent:not(.ecm-number-enhanced) .ecm-enhanced-number,
+.ecm-countdown.ecm-urgent:not(.ecm-number-enhanced) .ecm-days-number {
+    color: #e74c3c;
+    animation: urgentPulse 2s infinite;
+}
+
+.ecm-countdown.ecm-very-urgent:not(.ecm-number-enhanced) .ecm-enhanced-number,
+.ecm-countdown.ecm-very-urgent:not(.ecm-number-enhanced) .ecm-days-number {
+    color: #c0392b;
+    animation: veryUrgentPulse 1s infinite;
+}
+
+@keyframes urgentPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+@keyframes veryUrgentPulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.8; transform: scale(1.05); }
 }
 
 /* ==========================================================================
@@ -128,6 +199,13 @@
     white-space: nowrap !important;
 }
 
+/* 一列表示での日数強調 */
+.ecm-countdown-inline .ecm-enhanced-number {
+    font-size: var(--ecm-number-size, 1.4em) !important;
+    color: var(--ecm-number-color, #f9ca24) !important;
+    font-weight: bold !important;
+}
+
 .ecm-countdown-inline .ecm-number {
     font-size: 1.2em !important;
     font-weight: bold !important;
@@ -151,7 +229,8 @@
     color: #ffffff;
 }
 
-.no-css-custom-properties .ecm-countdown-inline .ecm-number {
+.no-css-custom-properties .ecm-countdown-inline .ecm-number,
+.no-css-custom-properties .ecm-countdown-inline .ecm-enhanced-number {
     color: #f9ca24;
 }
 
@@ -191,6 +270,14 @@
     border: 1px solid rgba(255, 255, 255, 0.3) !important;
 }
 
+/* 詳細表示での日数強調（一列表示） */
+.ecm-countdown-header .ecm-time-unit .ecm-enhanced-number,
+.ecm-countdown-footer .ecm-time-unit .ecm-enhanced-number {
+    font-size: var(--ecm-number-size, 1.4em) !important;
+    color: var(--ecm-number-color, #f9ca24) !important;
+    display: inline !important;
+}
+
 .ecm-countdown-header .ecm-time-unit .ecm-number,
 .ecm-countdown-footer .ecm-time-unit .ecm-number {
     font-size: 1.2em !important;
@@ -213,22 +300,20 @@
     position: relative;
 }
 
-.ecm-countdown-default .ecm-days-number {
-    font-size: 2.5em;
-    color: var(--ecm-accent-color);
+.ecm-countdown-default .ecm-days-number,
+.ecm-countdown-default .ecm-enhanced-number {
+    font-size: var(--ecm-number-size, 2.5em);
+    color: var(--ecm-number-color, var(--ecm-accent-color));
     font-weight: bold;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
     display: inline-block;
     transition: var(--ecm-transition);
 }
 
-.no-css-custom-properties .ecm-countdown-default .ecm-days-number {
+.no-css-custom-properties .ecm-countdown-default .ecm-days-number,
+.no-css-custom-properties .ecm-countdown-default .ecm-enhanced-number {
     color: #f9ca24;
     transition: all 0.3s ease;
-}
-
-.ecm-countdown-default .ecm-days-number.ecm-number-changing {
-    transform: scale(1.1);
 }
 
 /* ==========================================================================
@@ -259,6 +344,17 @@
     transform: translateY(-2px);
 }
 
+/* 詳細表示での日数強調 */
+.ecm-time-unit.ecm-days-unit .ecm-enhanced-number,
+.ecm-time-unit .ecm-enhanced-number {
+    display: block;
+    font-size: var(--ecm-number-size, 2em);
+    font-weight: bold;
+    color: var(--ecm-number-color, var(--ecm-accent-color));
+    line-height: 1;
+    transition: var(--ecm-transition);
+}
+
 .ecm-time-unit .ecm-number {
     display: block;
     font-size: 2em;
@@ -268,7 +364,8 @@
     transition: var(--ecm-transition);
 }
 
-.no-css-custom-properties .ecm-time-unit .ecm-number {
+.no-css-custom-properties .ecm-time-unit .ecm-number,
+.no-css-custom-properties .ecm-time-unit .ecm-enhanced-number {
     color: #f9ca24;
 }
 
@@ -296,9 +393,10 @@
     color: #333;
 }
 
+.ecm-countdown-simple .ecm-enhanced-number,
 .ecm-countdown-simple .ecm-days-number {
-    color: #e74c3c;
-    font-size: 2em;
+    color: var(--ecm-number-color, #e74c3c);
+    font-size: var(--ecm-number-size, 2em);
     font-weight: 700;
 }
 
@@ -315,8 +413,10 @@
     margin-bottom: 5px;
 }
 
+.ecm-countdown-compact .ecm-enhanced-number,
 .ecm-countdown-compact .ecm-days-number {
-    font-size: 1.5em;
+    font-size: var(--ecm-number-size, 1.5em);
+    color: var(--ecm-number-color, var(--ecm-accent-color));
 }
 
 /* ==========================================================================
@@ -328,8 +428,9 @@
     font-size: 0.9em;
 }
 
+.ecm-size-small .ecm-enhanced-number,
 .ecm-size-small .ecm-days-number {
-    font-size: 1.8em;
+    font-size: var(--ecm-number-size, 1.8em);
 }
 
 .ecm-size-small .ecm-time-unit {
@@ -347,8 +448,9 @@
     font-size: 1.2em;
 }
 
+.ecm-size-large .ecm-enhanced-number,
 .ecm-size-large .ecm-days-number {
-    font-size: 3.5em;
+    font-size: var(--ecm-number-size, 3.5em);
 }
 
 .ecm-size-large .ecm-time-unit {
@@ -363,9 +465,11 @@
     font-size: 1em !important;
 }
 
+.ecm-countdown-header.ecm-size-large .ecm-enhanced-number,
+.ecm-countdown-footer.ecm-size-large .ecm-enhanced-number,
 .ecm-countdown-header.ecm-size-large .ecm-days-number,
 .ecm-countdown-footer.ecm-size-large .ecm-days-number {
-    font-size: 1.4em !important;
+    font-size: var(--ecm-number-size, 1.4em) !important;
 }
 
 /* ==========================================================================
@@ -741,8 +845,10 @@
     }
     
     .ecm-countdown-header .ecm-time-unit .ecm-number,
-    .ecm-countdown-footer .ecm-time-unit .ecm-number {
-        font-size: 1em !important;
+    .ecm-countdown-header .ecm-time-unit .ecm-enhanced-number,
+    .ecm-countdown-footer .ecm-time-unit .ecm-number,
+    .ecm-countdown-footer .ecm-time-unit .ecm-enhanced-number {
+        font-size: var(--ecm-number-size, 1em) !important;
     }
     
     .ecm-countdown-header .ecm-time-unit .ecm-label,
@@ -760,8 +866,9 @@
         padding: 10px 8px;
     }
     
-    .ecm-time-unit .ecm-number {
-        font-size: 1.5em;
+    .ecm-time-unit .ecm-number,
+    .ecm-time-unit .ecm-enhanced-number {
+        font-size: var(--ecm-number-size, 1.5em);
     }
     
     .ecm-columns-2,
@@ -804,8 +911,9 @@
         font-size: 1em;
     }
     
+    .ecm-enhanced-number,
     .ecm-days-number {
-        font-size: 2em !important;
+        font-size: var(--ecm-number-size, 2em) !important;
     }
     
     /* 非常に小さい画面でのヘッダー・フッター一列表示 */
@@ -825,8 +933,9 @@
         gap: 2px !important;
     }
     
-    .ecm-countdown-inline .ecm-number {
-        font-size: 1em !important;
+    .ecm-countdown-inline .ecm-number,
+    .ecm-countdown-inline .ecm-enhanced-number {
+        font-size: var(--ecm-number-size, 1em) !important;
     }
     
     .ecm-countdown-inline .ecm-label {
@@ -847,8 +956,9 @@
         font-size: 1em;
     }
     
+    .ecm-size-large .ecm-enhanced-number,
     .ecm-size-large .ecm-days-number {
-        font-size: 2.5em;
+        font-size: var(--ecm-number-size, 2.5em);
     }
 }
 
@@ -875,8 +985,9 @@
         padding: 8px 6px;
     }
     
-    .ecm-time-unit .ecm-number {
-        font-size: 1.2em;
+    .ecm-time-unit .ecm-number,
+    .ecm-time-unit .ecm-enhanced-number {
+        font-size: var(--ecm-number-size, 1.2em);
     }
     
     .ecm-exam-item {
@@ -915,23 +1026,29 @@
     20%, 40%, 60%, 80% { transform: translateX(2px); }
 }
 
+.ecm-countdown.ecm-urgent .ecm-enhanced-number,
 .ecm-countdown.ecm-urgent .ecm-days-number {
     animation: countdownPulse 2s infinite;
-    color: #e74c3c;
+    color: var(--ecm-number-color, #e74c3c);
 }
 
+.ecm-countdown.ecm-very-urgent .ecm-enhanced-number,
 .ecm-countdown.ecm-very-urgent .ecm-days-number {
     animation: countdownPulse 1s infinite, countdownShake 0.5s infinite;
-    color: #c0392b;
+    color: var(--ecm-number-color, #c0392b);
 }
 
 /* ヘッダー・フッターでは緊急度アニメーションを控えめに */
+.ecm-countdown-header.ecm-urgent .ecm-enhanced-number,
+.ecm-countdown-footer.ecm-urgent .ecm-enhanced-number,
+.ecm-countdown-header.ecm-very-urgent .ecm-enhanced-number,
+.ecm-countdown-footer.ecm-very-urgent .ecm-enhanced-number,
 .ecm-countdown-header.ecm-urgent .ecm-days-number,
 .ecm-countdown-footer.ecm-urgent .ecm-days-number,
 .ecm-countdown-header.ecm-very-urgent .ecm-days-number,
 .ecm-countdown-footer.ecm-very-urgent .ecm-days-number {
     animation: none;
-    color: #ff6b6b;
+    color: var(--ecm-number-color, #ff6b6b);
 }
 
 /* 数値変更アニメーション */
@@ -941,7 +1058,7 @@
 
 @keyframes numberChange {
     0% { transform: scale(1); }
-    50% { transform: scale(1.1); color: var(--ecm-accent-color); }
+    50% { transform: scale(1.1); color: var(--ecm-number-color, var(--ecm-accent-color)); }
     100% { transform: scale(1); }
 }
 
@@ -1130,7 +1247,9 @@
     .ecm-exam-item,
     .ecm-time-unit,
     .ecm-days-left,
-    .ecm-info-countdown {
+    .ecm-info-countdown,
+    .ecm-enhanced-number,
+    .ecm-days-number {
         transition: none !important;
         animation: none !important;
     }
@@ -1140,6 +1259,8 @@
         transform: none !important;
     }
     
+    .ecm-countdown.ecm-urgent .ecm-enhanced-number,
+    .ecm-countdown.ecm-very-urgent .ecm-enhanced-number,
     .ecm-countdown.ecm-urgent .ecm-days-number,
     .ecm-countdown.ecm-very-urgent .ecm-days-number {
         animation: none !important;
@@ -1149,34 +1270,6 @@
     .ecm-exam-item::before {
         transition: none !important;
     }
-}
-
-/* ==========================================================================
-   カスタムカラーサポート用のクラス
-   ========================================================================== */
-
-/* ヘッダーカスタムカラー */
-.ecm-countdown-header.ecm-custom-colors {
-    background: var(--ecm-custom-header-bg);
-    color: var(--ecm-custom-header-text);
-}
-
-.ecm-countdown-header.ecm-custom-colors .ecm-time-unit,
-.ecm-countdown-header.ecm-custom-colors .ecm-countdown-inline .ecm-time-segment {
-    background: rgba(255, 255, 255, 0.15);
-    border-color: rgba(255, 255, 255, 0.3);
-}
-
-/* フッターカスタムカラー */
-.ecm-countdown-footer.ecm-custom-colors {
-    background: var(--ecm-custom-footer-bg);
-    color: var(--ecm-custom-footer-text);
-}
-
-.ecm-countdown-footer.ecm-custom-colors .ecm-time-unit,
-.ecm-countdown-footer.ecm-custom-colors .ecm-countdown-inline .ecm-time-segment {
-    background: rgba(255, 255, 255, 0.15);
-    border-color: rgba(255, 255, 255, 0.3);
 }
 
 /* ==========================================================================
