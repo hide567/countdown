@@ -1,6 +1,6 @@
 <?php
 /**
- * 資格試験ショートコードクラス（一列表示対応修正版）
+ * 資格試験ショートコードクラス（日数強調機能付き完全版）
  *
  * @package ExamCountdownManager
  */
@@ -48,7 +48,7 @@ class ECM_Exam_Shortcodes {
     }
     
     /**
-     * カウントダウンショートコード
+     * カウントダウンショートコード（日数強調機能付き）
      * 
      * 使用例:
      * [exam_countdown]
@@ -56,6 +56,7 @@ class ECM_Exam_Shortcodes {
      * [exam_countdown style="detailed" show_time="true"]
      * [exam_countdown style="header"] - 一列表示（ヘッダー用）
      * [exam_countdown style="footer"] - 一列表示（フッター用）
+     * [exam_countdown number_color="#ff0000" number_size="large"] - 日数強調
      */
     public function countdown_shortcode($atts) {
         // 属性のデフォルト値を設定
@@ -68,8 +69,10 @@ class ECM_Exam_Shortcodes {
             'custom_message' => '',         // カスタムメッセージ
             'show_exam_name' => 'true',     // 試験名を表示するか
             'animate' => 'true',            // アニメーション効果
-            'color' => '',                  // カスタムカラー
-            'background' => ''              // カスタム背景色
+            'color' => '',                  // カスタムカラー（全体の文字色）
+            'background' => '',             // カスタム背景色
+            'number_color' => '',           // 日数部分の色（NEW）
+            'number_size' => ''             // 日数部分のサイズ（NEW）
         ), $atts, 'exam_countdown');
         
         // 資格試験データを取得
@@ -102,11 +105,11 @@ class ECM_Exam_Shortcodes {
     }
     
     /**
-     * カウントダウンHTMLをレンダリング
+     * カウントダウンHTMLをレンダリング（日数強調機能付き）
      */
     private function render_countdown_html($exam, $time_data, $atts) {
-        // カスタムスタイルを生成
-        $custom_styles = $this->generate_custom_styles($atts['color'], $atts['background']);
+        // カスタムスタイルを生成（日数強調含む）
+        $custom_styles = $this->generate_custom_styles($atts);
         
         // クラス名を構築
         $classes = array(
@@ -114,6 +117,11 @@ class ECM_Exam_Shortcodes {
             'ecm-countdown-' . sanitize_html_class($atts['style']),
             'ecm-size-' . sanitize_html_class($atts['size'])
         );
+        
+        // 日数強調設定がある場合のクラス追加
+        if (!empty($atts['number_color']) || !empty($atts['number_size'])) {
+            $classes[] = 'ecm-number-enhanced';
+        }
         
         // 一列表示の場合は専用クラスを追加
         if ($atts['style'] === 'header' || $atts['style'] === 'footer') {
@@ -165,7 +173,7 @@ class ECM_Exam_Shortcodes {
                     <?php _e('試験終了', 'exam-countdown-manager'); ?>
                 </div>
             <?php else: ?>
-                <?php echo $this->render_countdown_content($atts['style'], $time_data, $atts['show_time'] === 'true'); ?>
+                <?php echo $this->render_countdown_content($atts['style'], $time_data, $atts['show_time'] === 'true', $atts); ?>
             <?php endif; ?>
         </div>
         <?php
@@ -174,31 +182,76 @@ class ECM_Exam_Shortcodes {
     }
     
     /**
-     * カウントダウンコンテンツをレンダリング（一列表示対応）
+     * カスタムスタイルを生成（日数強調対応）
      */
-    private function render_countdown_content($style, $time_data, $show_time) {
+    private function generate_custom_styles($atts) {
+        $styles = array();
+        $css_vars = array();
+        
+        // 基本色設定
+        if (!empty($atts['color']) && preg_match('/^#[a-fA-F0-9]{6}$/', $atts['color'])) {
+            $css_vars[] = '--ecm-text-color: ' . esc_attr($atts['color']);
+        }
+        
+        if (!empty($atts['background']) && preg_match('/^#[a-fA-F0-9]{6}$/', $atts['background'])) {
+            $css_vars[] = '--ecm-primary-color: ' . esc_attr($atts['background']);
+        }
+        
+        // 日数強調設定
+        if (!empty($atts['number_color']) && preg_match('/^#[a-fA-F0-9]{6}$/', $atts['number_color'])) {
+            $css_vars[] = '--ecm-number-color: ' . esc_attr($atts['number_color']);
+        }
+        
+        if (!empty($atts['number_size'])) {
+            $size_map = array(
+                'small' => '1.2em',
+                'medium' => '2em',
+                'large' => '3em',
+                'xlarge' => '4em'
+            );
+            
+            if (isset($size_map[$atts['number_size']])) {
+                $css_vars[] = '--ecm-number-size: ' . $size_map[$atts['number_size']];
+            }
+        }
+        
+        if (!empty($css_vars)) {
+            $styles[] = implode('; ', $css_vars);
+        }
+        
+        if (!empty($styles)) {
+            return 'style="' . esc_attr(implode('; ', $styles)) . '"';
+        }
+        
+        return '';
+    }
+    
+    /**
+     * カウントダウンコンテンツをレンダリング（日数強調対応）
+     */
+    private function render_countdown_content($style, $time_data, $show_time, $atts) {
         ob_start();
         
         switch ($style) {
             case 'header':
             case 'footer':
-                $this->render_inline_countdown($time_data, $show_time);
+                $this->render_inline_countdown($time_data, $show_time, $atts);
                 break;
                 
             case 'detailed':
-                $this->render_detailed_countdown($time_data, $show_time);
+                $this->render_detailed_countdown($time_data, $show_time, $atts);
                 break;
                 
             case 'simple':
-                $this->render_simple_countdown($time_data);
+                $this->render_simple_countdown($time_data, $atts);
                 break;
                 
             case 'compact':
-                $this->render_compact_countdown($time_data);
+                $this->render_compact_countdown($time_data, $atts);
                 break;
                 
             default:
-                $this->render_default_countdown($time_data);
+                $this->render_default_countdown($time_data, $atts);
                 break;
         }
         
@@ -206,14 +259,14 @@ class ECM_Exam_Shortcodes {
     }
     
     /**
-     * 一列表示カウントダウンをレンダリング（ヘッダー・フッター用）
+     * 一列表示カウントダウンをレンダリング（日数強調対応）
      */
-    private function render_inline_countdown($time_data, $show_time) {
+    private function render_inline_countdown($time_data, $show_time, $atts) {
         ?>
         <div class="ecm-countdown-inline">
             <?php if ($show_time): ?>
                 <span class="ecm-time-segment">
-                    <span class="ecm-number"><?php echo esc_html($time_data['days']); ?></span>
+                    <span class="ecm-number ecm-enhanced-number"><?php echo esc_html($time_data['days']); ?></span>
                     <span class="ecm-label"><?php _e('日', 'exam-countdown-manager'); ?></span>
                 </span>
                 <span class="ecm-time-segment">
@@ -226,7 +279,7 @@ class ECM_Exam_Shortcodes {
                 </span>
             <?php else: ?>
                 <span class="ecm-inline-text">
-                    <?php printf(__('あと%d日', 'exam-countdown-manager'), $time_data['days']); ?>
+                    <?php _e('あと', 'exam-countdown-manager'); ?><span class="ecm-enhanced-number"><?php echo esc_html($time_data['days']); ?></span><?php _e('日', 'exam-countdown-manager'); ?>
                 </span>
             <?php endif; ?>
         </div>
@@ -234,13 +287,13 @@ class ECM_Exam_Shortcodes {
     }
     
     /**
-     * 詳細カウントダウンをレンダリング
+     * 詳細カウントダウンをレンダリング（日数強調対応）
      */
-    private function render_detailed_countdown($time_data, $show_time) {
+    private function render_detailed_countdown($time_data, $show_time, $atts) {
         ?>
         <div class="ecm-countdown-detailed">
-            <div class="ecm-time-unit">
-                <span class="ecm-number"><?php echo esc_html($time_data['days']); ?></span>
+            <div class="ecm-time-unit ecm-days-unit">
+                <span class="ecm-number ecm-enhanced-number"><?php echo esc_html($time_data['days']); ?></span>
                 <span class="ecm-label"><?php _e('日', 'exam-countdown-manager'); ?></span>
             </div>
             <?php if ($show_time): ?>
@@ -258,34 +311,34 @@ class ECM_Exam_Shortcodes {
     }
     
     /**
-     * シンプルカウントダウンをレンダリング
+     * シンプルカウントダウンをレンダリング（日数強調対応）
      */
-    private function render_simple_countdown($time_data) {
+    private function render_simple_countdown($time_data, $atts) {
         ?>
         <div class="ecm-countdown-simple">
-            <?php printf(__('あと%d日', 'exam-countdown-manager'), $time_data['days']); ?>
+            <?php _e('あと', 'exam-countdown-manager'); ?><span class="ecm-enhanced-number"><?php echo esc_html($time_data['days']); ?></span><?php _e('日', 'exam-countdown-manager'); ?>
         </div>
         <?php
     }
     
     /**
-     * コンパクトカウントダウンをレンダリング
+     * コンパクトカウントダウンをレンダリング（日数強調対応）
      */
-    private function render_compact_countdown($time_data) {
+    private function render_compact_countdown($time_data, $atts) {
         ?>
         <div class="ecm-countdown-compact">
-            <span class="ecm-days-number"><?php echo esc_html($time_data['days']); ?></span>日
+            <span class="ecm-days-number ecm-enhanced-number"><?php echo esc_html($time_data['days']); ?></span>日
         </div>
         <?php
     }
     
     /**
-     * デフォルトカウントダウンをレンダリング
+     * デフォルトカウントダウンをレンダリング（日数強調対応）
      */
-    private function render_default_countdown($time_data) {
+    private function render_default_countdown($time_data, $atts) {
         ?>
         <div class="ecm-countdown-default">
-            あと <span class="ecm-days-number"><?php echo esc_html($time_data['days']); ?></span> 日
+            あと <span class="ecm-days-number ecm-enhanced-number"><?php echo esc_html($time_data['days']); ?></span> 日
         </div>
         <?php
     }
@@ -525,27 +578,6 @@ class ECM_Exam_Shortcodes {
         return '<div class="ecm-progress-placeholder">' . 
                __('試験カレンダー機能は今後のアップデートで実装予定です。', 'exam-countdown-manager') . 
                '</div>';
-    }
-    
-    /**
-     * カスタムスタイルを生成
-     */
-    private function generate_custom_styles($color, $background) {
-        $styles = array();
-        
-        if (!empty($color) && preg_match('/^#[a-fA-F0-9]{6}$/', $color)) {
-            $styles[] = '--ecm-text-color: ' . esc_attr($color);
-        }
-        
-        if (!empty($background) && preg_match('/^#[a-fA-F0-9]{6}$/', $background)) {
-            $styles[] = '--ecm-primary-color: ' . esc_attr($background);
-        }
-        
-        if (!empty($styles)) {
-            return 'style="' . esc_attr(implode('; ', $styles)) . '"';
-        }
-        
-        return '';
     }
     
     /**
